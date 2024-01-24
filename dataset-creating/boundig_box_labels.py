@@ -53,8 +53,9 @@ def capture_handgesture(directory):
 
                 df.to_csv("data/labels/" + current_gesture + "/" + image_file + ".csv", index=False)
         else:
-            df = pd.DataFrame(columns=['gesture', 'min_x', 'max_x', 'min_y', 'max_y'])
-            df.to_csv("data/labels/" + current_gesture + "/" + image_file + ".csv", index=False)
+            # delete file
+            os.remove("data/images/" + current_gesture + "/" + image_file)
+
 
 
 for pose in poses:
