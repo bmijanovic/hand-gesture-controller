@@ -47,7 +47,20 @@ class Compose(object):
 
         return img
     
-transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
+# transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
+    
+transform = Compose([
+    transforms.Resize((448, 448)), 
+    transforms.RandomRotation(10), 
+    transforms.RandomHorizontalFlip(p=0.5), 
+    transforms.RandomVerticalFlip(p=0.5), 
+    transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
+    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False), 
+    transforms.RandomPerspective(distortion_scale=0.5, p=0.5, interpolation=3), 
+    transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10, fill=0), 
+    transforms.ToTensor(), 
+    transforms.Normalize(mean=[0.5], std=[0.5]),
+])
 
 
 def main():

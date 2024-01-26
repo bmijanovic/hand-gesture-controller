@@ -45,7 +45,19 @@ class Compose(object):
 
         return img
     
-transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
+transform = Compose([
+    transforms.Resize((448, 448)), 
+    transforms.RandomRotation(10), 
+    transforms.RandomHorizontalFlip(p=0.5), 
+    transforms.RandomVerticalFlip(p=0.5), 
+    transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
+    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False), 
+    transforms.RandomPerspective(distortion_scale=0.5, p=0.5, interpolation=3), 
+    transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10, fill=0), 
+    transforms.ToTensor(), 
+    transforms.Normalize(mean=[0.5], std=[0.5]),
+])
+
 
 def train_fn(train_loader, model, optimizer, loss_fn):
     loop = tqdm(train_loader, leave=True)
@@ -64,6 +76,47 @@ def train_fn(train_loader, model, optimizer, loss_fn):
         loop.set_postfix(loss=loss.item())
 
     print(f"Mean loss was {sum(mean_loss)/len(mean_loss)}")
+
+
+def train(train_dataloader, model, optimizer, loss_fn):
+    for epoch in range(EPOCHS):
+        print(f"Epoch {epoch+1}/{EPOCHS}")
+        # for x, y in train_dataloader:
+        #     x = x.to(DEVICE)
+        #     for idx in range(5):
+        #         bboxes = cellboxes_to_boxes(model(x))
+        #         bboxes = non_max_suppression(bboxes[idx], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
+        #         plot_image(x[idx].permute(1,2,0).to("cpu"), bboxes)
+
+        pred_boxes, target_boxes = get_bboxes(
+            train_dataloader, model, iou_threshold=0.5, threshold=0.4
+        )
+        mean_avg_prec = mean_average_precision(
+            pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
+        )
+        print(f"Train mAP: {mean_avg_prec}")
+
+        train_fn(train_dataloader, model, optimizer, loss_fn)
+
+        if epoch % 5 == 0:
+            checkpoint = {
+                "state_dict": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            }
+            save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
+
+    
+def test_fn(test_loader, model):
+    # provide image, get label
+    for x, y in test_loader:
+        x = x.to(DEVICE)
+        out = model(x)
+        bboxes = cellboxes_to_boxes(out)
+        bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
+        print(bboxes)
+        plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
+
+
 
 
 def main():
@@ -101,45 +154,7 @@ def main():
     )
 
     # test_fn(test_loader, model)
-
-
-    for epoch in range(EPOCHS):
-        print(f"Epoch {epoch+1}/{EPOCHS}")
-        # for x, y in train_dataloader:
-        #     x = x.to(DEVICE)
-        #     for idx in range(5):
-        #         bboxes = cellboxes_to_boxes(model(x))
-        #         bboxes = non_max_suppression(bboxes[idx], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
-        #         plot_image(x[idx].permute(1,2,0).to("cpu"), bboxes)
-
-        pred_boxes, target_boxes = get_bboxes(
-            train_dataloader, model, iou_threshold=0.5, threshold=0.4
-        )
-        mean_avg_prec = mean_average_precision(
-            pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
-        )
-        print(f"Train mAP: {mean_avg_prec}")
-
-        train_fn(train_dataloader, model, optimizer, loss_fn)
-
-        if epoch % 5 == 0:
-            checkpoint = {
-                "state_dict": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-            }
-            save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
-
-
-    
-def test_fn(test_loader, model):
-    # provide image, get label
-    for x, y in test_loader:
-        x = x.to(DEVICE)
-        out = model(x)
-        bboxes = cellboxes_to_boxes(out)
-        bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
-        print(bboxes)
-        plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
+    train(train_dataloader, model, optimizer, loss_fn)
 
 
 

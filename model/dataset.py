@@ -67,8 +67,6 @@ class HandDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-
-        
         
         df = pd.read_csv(label_path)
 
