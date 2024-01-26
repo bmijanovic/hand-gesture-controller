@@ -8,6 +8,7 @@ from tqdm import tqdm
 from torch.utils.data import DataLoader
 from model import YOLOv1
 from dataset import HandDataset
+import mediapipe as mp
 from utils import (
     non_max_suppression,
     mean_average_precision,
@@ -32,7 +33,7 @@ EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-LOAD_MODEL_FILE = "overfit3.pth.tar"
+LOAD_MODEL_FILE = "../nns/overfit_new2_32b11e.pth.tar"
 ROOT_DIR = "../dataset-creating/data/"
 
 class Compose(object):
@@ -47,6 +48,14 @@ class Compose(object):
     
 transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
 
+
+mp_hands_sol = mp.solutions.hands
+mp_hands = mp_hands_sol.Hands(
+    max_num_hands=1,
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.5,
+)
+mp_drawing = mp.solutions.drawing_utils
 
 def main():
     if torch.cuda.is_available():
@@ -69,17 +78,35 @@ def main():
 
     while True:
         ret, frame = cap.read()
-        cv2.imshow("frame", frame)
+        # cv2.imshow("frame", frame)
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
         
+        frame2 = frame.copy()
         
         # convert to PIL image
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame = transforms.ToPILImage()(frame)
         frame = transform(frame)
         frame = frame.unsqueeze(0)
+
+        # draw hand landmarks
+        results = mp_hands.process(cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB))
+        if results.multi_hand_landmarks:
+            for hand_landmarks in results.multi_hand_landmarks:
+                mp_drawing.draw_landmarks(frame2, hand_landmarks, mp_hands_sol.HAND_CONNECTIONS)
+                # draw bounding box
+                x1 = int(hand_landmarks.landmark[0].x * 640)
+                y1 = int(hand_landmarks.landmark[0].y * 480)
+                x2 = int(hand_landmarks.landmark[0].x * 640)
+                y2 = int(hand_landmarks.landmark[0].y * 480)
+                cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+    
+
+                
+    
 
         # get prediction
         model.eval()
@@ -90,9 +117,17 @@ def main():
             bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
             if bboxes != []: 
                 print(bboxes)
+                _, _, x, y, w, h = bboxes[0]
+                x1 = int((x-w/2) * 640)
+                y1 = int((y-h/2) * 480)
+                x2 = int((x+w/2) * 640)
+                y2 = int((y+h/2) * 480)
+                cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.imshow("frame", frame2)
+            else:
+                cv2.imshow("frame", frame2)
+                
 
-            # draw boxes and show image
-            # plot_image(frame, boxes)
 
         if cv2.waitKey(1) == ord("q"):
             break

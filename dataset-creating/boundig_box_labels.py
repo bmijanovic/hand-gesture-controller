@@ -13,6 +13,7 @@ mp_drawing = mp.solutions.drawing_utils
 
 
 poses = ['open', 'left', 'right', 'up', 'down']
+# poses = ['up']
 
 
 
@@ -34,7 +35,7 @@ def capture_handgesture(directory):
                 min_y = min(coords, key=lambda x: x[1])[1]
                 max_y = max(coords, key=lambda x: x[1])[1]
 
-                margin = 0.05  
+                margin = 0.03
 
                 min_x = max(0, min_x - margin)
                 max_x = min(1, max_x + margin)
@@ -48,12 +49,17 @@ def capture_handgesture(directory):
                     'min_y': min_y,
                     'max_y': max_y
                 }
+                
+                mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands_sol.HAND_CONNECTIONS)
+                cv2.rectangle(image, (int(min_x * image.shape[1]), int(min_y * image.shape[0])), (int(max_x * image.shape[1]), int(max_y * image.shape[0])), (0, 255, 0), 2)
+                cv2.imshow("image", image)
+                cv2.waitKey(0)
+
 
                 df = pd.DataFrame([datapoint])
 
                 df.to_csv("data/labels/" + current_gesture + "/" + image_file + ".csv", index=False)
         else:
-            # delete file
             os.remove("data/images/" + current_gesture + "/" + image_file)
 
 

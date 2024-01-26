@@ -309,9 +309,9 @@ pyrightconfig.json
 
 dataset-creating/utils.py
 dataset-creating/old-landmarks.ipynb
-model/overfit2.pth.tar
-model/overfit3.pth.tar
-overfit.pth.tar
-overfit2.pth.tar
-overfit3.pth.tar
+dataset-creating/data/**
+model/model.ipynb
+nns/*
 yolo.zip
+dataset-creating.zip
+model.zip

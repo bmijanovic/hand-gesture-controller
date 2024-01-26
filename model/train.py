@@ -25,13 +25,13 @@ torch.manual_seed(seed)
 # Hyperparameters etc.
 LEARNING_RATE = 2e-5
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-BATCH_SIZE = 3
+BATCH_SIZE = 16
 WEIGHT_DECAY = 0
-EPOCHS = 100
+EPOCHS = 1
 NUM_WORKERS = 2
 PIN_MEMORY = True
-LOAD_MODEL = False
-LOAD_MODEL_FILE = "overfit3.pth.tar"
+LOAD_MODEL = True
+LOAD_MODEL_FILE = "../nns/overfit_new2_32b11e.pth.tar"
 ROOT_DIR = "../dataset-creating/data/"
 
 
@@ -102,10 +102,9 @@ def main():
 
     # test_fn(test_loader, model)
 
-    # train_fn(train_dataloader, model, optimizer, loss_fn)
 
     for epoch in range(EPOCHS):
-
+        print(f"Epoch {epoch+1}/{EPOCHS}")
         # for x, y in train_dataloader:
         #     x = x.to(DEVICE)
         #     for idx in range(5):

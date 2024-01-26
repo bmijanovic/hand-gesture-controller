@@ -5,18 +5,6 @@ import matplotlib.patches as patches
 from collections import Counter
 
 def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
-    """
-    Calculates intersection over union
-
-    Parameters:
-        boxes_preds (tensor): Predictions of Bounding Boxes (BATCH_SIZE, 4)
-        boxes_labels (tensor): Correct labels of Bounding Boxes (BATCH_SIZE, 4)
-        box_format (str): midpoint/corners, if boxes (x,y,w,h) or (x1,y1,x2,y2)
-
-    Returns:
-        tensor: Intersection over union for all examples
-    """
-
     if box_format == "midpoint":
         box1_x1 = boxes_preds[..., 0:1] - boxes_preds[..., 2:3] / 2
         box1_y1 = boxes_preds[..., 1:2] - boxes_preds[..., 3:4] / 2
@@ -52,19 +40,6 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
 
 
 def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
-    """
-    Does Non Max Suppression given bboxes
-
-    Parameters:
-        bboxes (list): list of lists containing all bboxes with each bboxes
-        specified as [class_pred, prob_score, x1, y1, x2, y2]
-        iou_threshold (float): threshold where predicted bboxes is correct
-        threshold (float): threshold to remove predicted bboxes (independent of IoU) 
-        box_format (str): "midpoint" or "corners" used to specify bboxes
-
-    Returns:
-        list: bboxes after performing NMS given a specific IoU threshold
-    """
 
     assert type(bboxes) == list
 
@@ -94,21 +69,6 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
 def mean_average_precision(
     pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
 ):
-    """
-    Calculates mean average precision 
-
-    Parameters:
-        pred_boxes (list): list of lists containing all bboxes with each bboxes
-        specified as [train_idx, class_prediction, prob_score, x1, y1, x2, y2]
-        true_boxes (list): Similar as pred_boxes except all the correct ones 
-        iou_threshold (float): threshold where predicted bboxes is correct
-        box_format (str): "midpoint" or "corners" used to specify bboxes
-        num_classes (int): number of classes
-
-    Returns:
-        float: mAP value across all classes given a specific IoU threshold 
-    """
-
     # list storing all AP for respective classes
     average_precisions = []
 
@@ -287,16 +247,6 @@ def get_bboxes(
 
 
 def convert_cellboxes(predictions, S=7):
-    """
-    Converts bounding boxes output from Yolo with
-    an image split size of S into entire image ratios
-    rather than relative to cell ratios. Tried to do this
-    vectorized, but this resulted in quite difficult to read
-    code... Use as a black box? Or implement a more intuitive,
-    using 2 for loops iterating range(S) and convert them one
-    by one, resulting in a slower but more readable implementation.
-    """
-
     predictions = predictions.to("cpu")
     batch_size = predictions.shape[0]
     predictions = predictions.reshape(batch_size, 7, 7, 10)
