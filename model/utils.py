@@ -30,7 +30,6 @@ def intersection_over_union(boxes_preds, boxes_labels, box_format="midpoint"):
     x2 = torch.min(box1_x2, box2_x2)
     y2 = torch.min(box1_y2, box2_y2)
 
-    # .clamp(0) is for the case when they do not intersect
     intersection = (x2 - x1).clamp(0) * (y2 - y1).clamp(0)
 
     box1_area = abs((box1_x2 - box1_x1) * (box1_y2 - box1_y1))
@@ -67,21 +66,16 @@ def non_max_suppression(bboxes, iou_threshold, threshold, box_format="corners"):
 
 
 def mean_average_precision(
-    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=20
+    pred_boxes, true_boxes, iou_threshold=0.5, box_format="midpoint", num_classes=5
 ):
-    # list storing all AP for respective classes
     average_precisions = []
 
-    # used for numerical stability later on
     epsilon = 1e-6
 
     for c in range(num_classes):
         detections = []
         ground_truths = []
 
-        # Go through all predictions and targets,
-        # and only add the ones that belong to the
-        # current class c
         for detection in pred_boxes:
             if detection[1] == c:
                 detections.append(detection)
@@ -90,32 +84,23 @@ def mean_average_precision(
             if true_box[1] == c:
                 ground_truths.append(true_box)
 
-        # find the amount of bboxes for each training example
-        # Counter here finds how many ground truth bboxes we get
-        # for each training example, so let's say img 0 has 3,
-        # img 1 has 5 then we will obtain a dictionary with:
-        # amount_bboxes = {0:3, 1:5}
+
         amount_bboxes = Counter([gt[0] for gt in ground_truths])
 
-        # We then go through each key, val in this dictionary
-        # and convert to the following (w.r.t same example):
-        # ammount_bboxes = {0:torch.tensor[0,0,0], 1:torch.tensor[0,0,0,0,0]}
+
         for key, val in amount_bboxes.items():
             amount_bboxes[key] = torch.zeros(val)
 
-        # sort by box probabilities which is index 2
         detections.sort(key=lambda x: x[2], reverse=True)
         TP = torch.zeros((len(detections)))
         FP = torch.zeros((len(detections)))
         total_true_bboxes = len(ground_truths)
         
-        # If none exists for this class then we can safely skip
         if total_true_bboxes == 0:
             continue
 
         for detection_idx, detection in enumerate(detections):
-            # Only take out the ground_truths that have the same
-            # training idx as detection
+       
             ground_truth_img = [
                 bbox for bbox in ground_truths if bbox[0] == detection[0]
             ]
@@ -135,15 +120,12 @@ def mean_average_precision(
                     best_gt_idx = idx
 
             if best_iou > iou_threshold:
-                # only detect ground truth detection once
                 if amount_bboxes[detection[0]][best_gt_idx] == 0:
-                    # true positive and add this bounding box to seen
                     TP[detection_idx] = 1
                     amount_bboxes[detection[0]][best_gt_idx] = 1
                 else:
                     FP[detection_idx] = 1
 
-            # if IOU is lower then the detection is a false positive
             else:
                 FP[detection_idx] = 1
 
@@ -153,7 +135,6 @@ def mean_average_precision(
         precisions = torch.divide(TP_cumsum, (TP_cumsum + FP_cumsum + epsilon))
         precisions = torch.cat((torch.tensor([1]), precisions))
         recalls = torch.cat((torch.tensor([0]), recalls))
-        # torch.trapz for numerical integration
         average_precisions.append(torch.trapz(precisions, recalls))
 
     return sum(average_precisions) / len(average_precisions)
@@ -164,15 +145,11 @@ def plot_image(image, boxes):
     im = np.array(image)
     height, width, _ = im.shape
 
-    # Create figure and axes
     fig, ax = plt.subplots(1)
-    # Display the image
     ax.imshow(im)
 
-    # box[0] is x midpoint, box[2] is width
-    # box[1] is y midpoint, box[3] is height
 
-    # Create a Rectangle potch
+
     for box in boxes:
         box = box[2:]
         assert len(box) == 4, "Got more values than in x, y, w, h, in a box!"
@@ -186,7 +163,6 @@ def plot_image(image, boxes):
             edgecolor="r",
             facecolor="none",
         )
-        # Add the patch to the Axes
         ax.add_patch(rect)
 
     plt.show()
@@ -198,12 +174,11 @@ def get_bboxes(
     threshold,
     pred_format="cells",
     box_format="midpoint",
-    device="cuda",
+    device="cpu",
 ):
     all_pred_boxes = []
     all_true_boxes = []
 
-    # make sure model is in eval before get bboxes
     model.eval()
     train_idx = 0
 
@@ -227,15 +202,12 @@ def get_bboxes(
             )
 
 
-            #if batch_idx == 0 and idx == 0:
-            #    plot_image(x[idx].permute(1,2,0).to("cpu"), nms_boxes)
-            #    print(nms_boxes)
+
 
             for nms_box in nms_boxes:
                 all_pred_boxes.append([train_idx] + nms_box)
 
             for box in true_bboxes[idx]:
-                # many will get converted to 0 pred
                 if box[1] > threshold:
                     all_true_boxes.append([train_idx] + box)
 

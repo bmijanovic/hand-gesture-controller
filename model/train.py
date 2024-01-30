@@ -35,9 +35,10 @@ EPOCHS = 1
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-LOAD_MODEL_FILE = "../nns/pokusaj2.pth.tar"
+LOAD_MODEL_FILE = "../nns/b16e151.pth.tar"
 TRAIN_ROOT_DIR = "../dataset-creating/data/train/"
 TEST_ROOT_DIR = "../dataset-creating/data/test/"
+IS_TESTING = True
 
 
 class Compose(object):
@@ -82,12 +83,6 @@ def train_fn(train_loader, model, optimizer, loss_fn):
 def train(train_dataloader, model, optimizer, loss_fn):
     for epoch in range(EPOCHS):
         print(f"Epoch {epoch+1}/{EPOCHS}")
-        # for x, y in train_dataloader:
-        #     x = x.to(DEVICE)
-        #     for idx in range(5):
-        #         bboxes = cellboxes_to_boxes(model(x))
-        #         bboxes = non_max_suppression(bboxes[idx], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
-        #         plot_image(x[idx].permute(1,2,0).to("cpu"), bboxes)
 
         pred_boxes, target_boxes = get_bboxes(
             train_dataloader, model, iou_threshold=0.5, threshold=0.4
@@ -130,8 +125,8 @@ def test_fn(test_loader, model):
                         if y_train.item() == bboxes[0][0]:
                             tacno += 1
                             break
-            # print(bboxes)
-            # plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
+            print(bboxes)
+            plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
 
         print(f"Tacno: {tacno}, ukupno: {ukupno}, tacnost: {tacno/ukupno}")
 
@@ -152,60 +147,32 @@ def main():
     loss_fn = YoloLoss()
 
     if LOAD_MODEL:
-        load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
+        checkpoint = torch.load(LOAD_MODEL_FILE, map_location=torch.device('cpu'))
+        load_checkpoint(checkpoint, model, optimizer)
+    if not IS_TESTING :
+        train_dataset = HandDataset(root_dir=TRAIN_ROOT_DIR, transform=transform, S=7, B=1, C=5)
 
-    # train_dataset = HandDataset(root_dir=TRAIN_ROOT_DIR, transform=transform, S=7, B=1, C=5)
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=BATCH_SIZE,
+            num_workers=NUM_WORKERS,
+            pin_memory=PIN_MEMORY,
+            shuffle=True,
+            drop_last=False,
+        )
+        train(train_dataloader, model, optimizer, loss_fn)
+    else :
+        test_dataset = HandDataset(root_dir=TEST_ROOT_DIR, transform=transform, S=7, B=1, C=5)
+        test_dataloader = DataLoader(
+            dataset=test_dataset,
+            batch_size=1,
+            num_workers=NUM_WORKERS,
+            pin_memory=PIN_MEMORY,
+            shuffle=True,
+            drop_last=False,
+        )
+        test_fn(test_dataloader, model)
 
-    # train_dataloader = DataLoader(
-    #     dataset=train_dataset,
-    #     batch_size=BATCH_SIZE,
-    #     num_workers=NUM_WORKERS,
-    #     pin_memory=PIN_MEMORY,
-    #     shuffle=True,
-    #     drop_last=False,
-    # )
-    # train(train_dataloader, model, optimizer, loss_fn)
-
-    test_dataset = HandDataset(root_dir=TEST_ROOT_DIR, transform=transform, S=7, B=1, C=5)
-    test_dataloader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        shuffle=True,
-        drop_last=False,
-    )
-    test_fn(test_dataloader, model)
-
-
-    # images = []
-    # # load all .jpg files from current directory
-    # for filename in os.listdir("."):
-    #     if filename.endswith(".jpg"):
-    #         images.append(filename)
-
-    # for image in images:
-    #     img = Image.open(image)
-    #     img = transform(img)
-    #     img = img.unsqueeze(0)
-    #     model.eval()
-
-    #     with torch.no_grad():
-    #         predictions = model(img.to(DEVICE))
-    #         bboxes = cellboxes_to_boxes(predictions)
-    #         bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
-    #         print(bboxes)
-    
-
-    # # plot both images at once
-    # fig, ax = plt.subplots(1, 2, figsize=(20, 10))
-    # for idx, image in enumerate(images):
-    #     img = Image.open(image)
-    #     ax[idx].imshow(img)
-    
-    # plt.show()
-    
-    
     
 
 

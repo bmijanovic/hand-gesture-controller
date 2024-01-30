@@ -9,6 +9,9 @@ from torch.utils.data import DataLoader
 from model import YOLOv1
 from dataset import HandDataset
 import mediapipe as mp
+import pyautogui
+import pydirectinput
+
 from utils import (
     non_max_suppression,
     mean_average_precision,
@@ -47,7 +50,8 @@ class Compose(object):
 
         return img
     
-transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
+transform = Compose([transforms.Resize((448, 448)),transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
+ transforms.ToTensor(),])
     
 # transform = Compose([
 #     transforms.Resize((448, 448)), 
@@ -83,10 +87,11 @@ def main():
     loss_fn = YoloLoss()
 
     if LOAD_MODEL:
-        load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
+        checkpoint = torch.load(LOAD_MODEL_FILE, map_location=torch.device('cpu'))
+        load_checkpoint(checkpoint, model, optimizer)
 
     # open camera and capture image
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(0)
 
     # Set camera resolution
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -106,6 +111,8 @@ def main():
             print("Can't receive frame (stream end?). Exiting ...")
             break
         # frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+
         frame2 = frame.copy()
         
         # convert to PIL image
@@ -142,18 +149,29 @@ def main():
             if bboxes != []: 
                 print(bboxes)
                 _, _, x, y, w, h = bboxes[0]
-                x1 = int((x-w/2) * width)
-                y1 = int((y-h/2) * height)
-                x2 = int((x+w/2) * width)
-                y2 = int((y+h/2) * height)
+                x1 = int((x-w/2) * height)
+                y1 = int((y-h/2) * width)
+                x2 = int((x+w/2) * height)
+                y2 = int((y+h/2) * width)
                 cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.imshow("frame", frame2)
                 cv2.imwrite("hand.jpg", frame2)
+                press = int(bboxes[0][0])
+                if (press == 0) :
+                    pydirectinput.press('w')
+                if (press == 1) : 
+                    pydirectinput.press('a')
+                if (press == 2) :
+                    pydirectinput.press('right')
+                if (press == 3) :
+                    pydirectinput.press('d')
+                if (press == 4) :
+                    pydirectinput.press('s')
+
             else:
                 #print("No hand detected") 
                 cv2.imshow("frame", frame2)
                 
-        time.sleep(0.1)
 
         if cv2.waitKey(1) == ord("q"):
             break

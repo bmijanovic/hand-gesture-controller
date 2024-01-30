@@ -18,7 +18,6 @@ class HandDataset(Dataset):
             "down": np.array([0., 0., 1., 0., 0.]),
             "right": np.array([0., 0., 0., 1., 0.]),
             "open": np.array([0., 0., 0., 0., 1.]),
-            "nothing": np.array([0., 0., 0., 0., 0.]), 
         }
 
         self.label_index = {
@@ -39,7 +38,6 @@ class HandDataset(Dataset):
             "down": len(os.listdir(os.path.join(self.images_dir, "down"))),
             "right": len(os.listdir(os.path.join(self.images_dir, "right"))),
             "open": len(os.listdir(os.path.join(self.images_dir, "open"))),
-            "nothing": len(os.listdir(os.path.join(self.images_dir, "nothing"))),
         }
 
         self.S = S
@@ -63,8 +61,7 @@ class HandDataset(Dataset):
         image_path = os.path.join(self.images_dir, gesture, f"{gesture}_{idx}.jpg")
         label_path = os.path.join(self.labels_dir, gesture, f"{gesture}_{idx}.jpg.csv")
 
-        # image = cv2.imread(image_path)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+  
         image = Image.open(image_path)
         if self.transform:
             image = self.transform(image)
@@ -79,8 +76,6 @@ class HandDataset(Dataset):
 
         df = df.iloc[0] 
 
-        if gesture == "nothing":
-            return image, np.zeros((self.S, self.S, self.C + 5 * self.B))
 
 
         class_label = self.label_index[gesture]
