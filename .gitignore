@@ -309,4 +309,11 @@ pyrightconfig.json
 
 dataset-creating/utils.py
 dataset-creating/old-landmarks.ipynb
+dataset-creating/data/**
+dataset-creating/videos/**
 model/model.ipynb
+nns/*
+yolo.zip
+dataset-creating.zip
+model.zip
+sc.zip
