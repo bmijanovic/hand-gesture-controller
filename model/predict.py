@@ -20,6 +20,7 @@ from utils import (
     load_checkpoint,
 )
 from loss import YoloLoss
+import time
 
 seed = 123
 torch.manual_seed(seed)
@@ -33,7 +34,7 @@ EPOCHS = 100
 NUM_WORKERS = 2
 PIN_MEMORY = True
 LOAD_MODEL = True
-LOAD_MODEL_FILE = "../nns/overfit_new2_32b11e.pth.tar"
+LOAD_MODEL_FILE = "../nns/b16e151.pth.tar"
 ROOT_DIR = "../dataset-creating/data/"
 
 class Compose(object):
@@ -46,20 +47,20 @@ class Compose(object):
 
         return img
     
-# transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
+transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor(),])
     
-transform = Compose([
-    transforms.Resize((448, 448)), 
-    transforms.RandomRotation(10), 
-    transforms.RandomHorizontalFlip(p=0.5), 
-    transforms.RandomVerticalFlip(p=0.5), 
-    transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
-    transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False), 
-    transforms.RandomPerspective(distortion_scale=0.5, p=0.5, interpolation=3), 
-    transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10, fill=0), 
-    transforms.ToTensor(), 
-    transforms.Normalize(mean=[0.5], std=[0.5]),
-])
+# transform = Compose([
+#     transforms.Resize((448, 448)), 
+#     transforms.RandomRotation(10), 
+#     transforms.RandomHorizontalFlip(p=0.5), 
+#     transforms.RandomVerticalFlip(p=0.5), 
+#     transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
+#     transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False), 
+#     transforms.RandomPerspective(distortion_scale=0.5, p=0.5, interpolation=3), 
+#     transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10, fill=0), 
+#     transforms.ToTensor(), 
+#     transforms.Normalize(mean=[0.5], std=[0.5]),
+# ])
 
 
 mp_hands_sol = mp.solutions.hands
@@ -85,9 +86,18 @@ def main():
         load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
 
     # open camera and capture image
-    cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    cap = cv2.VideoCapture(1)
+
+    # Set camera resolution
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    print("width: ", width)
+    print("height: ", height)
+
 
     while True:
         ret, frame = cap.read()
@@ -95,7 +105,7 @@ def main():
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
-        
+        # frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
         frame2 = frame.copy()
         
         # convert to PIL image
@@ -105,17 +115,18 @@ def main():
         frame = frame.unsqueeze(0)
 
         # draw hand landmarks
-        results = mp_hands.process(cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB))
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(frame2, hand_landmarks, mp_hands_sol.HAND_CONNECTIONS)
-                # draw bounding box
-                x1 = int(hand_landmarks.landmark[0].x * 640)
-                y1 = int(hand_landmarks.landmark[0].y * 480)
-                x2 = int(hand_landmarks.landmark[0].x * 640)
-                y2 = int(hand_landmarks.landmark[0].y * 480)
-                cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
+        # results = mp_hands.process(cv2.cvtColor(frame2, cv2.COLOR_BGR2RGB))
+        # if results.multi_hand_landmarks:
+        #     for hand_landmarks in results.multi_hand_landmarks:
+        #         mp_drawing.draw_landmarks(frame2, hand_landmarks, mp_hands_sol.HAND_CONNECTIONS)
+        #         # draw bounding box
+        #         x1 = int(hand_landmarks.landmark[0].x * 640)
+        #         y1 = int(hand_landmarks.landmark[0].y * 480)
+        #         x2 = int(hand_landmarks.landmark[0].x * 640)
+        #         y2 = int(hand_landmarks.landmark[0].y * 480)
+        #         cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        #         # save image
+        #         # cv2.imwrite("hand.jpg", frame2)
     
 
                 
@@ -127,20 +138,22 @@ def main():
             predictions = model(frame.to(DEVICE))
             # predictions = predictions[0].squeeze(0)
             bboxes = cellboxes_to_boxes(predictions)
-            bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
+            bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.6, box_format="midpoint")
             if bboxes != []: 
                 print(bboxes)
                 _, _, x, y, w, h = bboxes[0]
-                x1 = int((x-w/2) * 640)
-                y1 = int((y-h/2) * 480)
-                x2 = int((x+w/2) * 640)
-                y2 = int((y+h/2) * 480)
+                x1 = int((x-w/2) * width)
+                y1 = int((y-h/2) * height)
+                x2 = int((x+w/2) * width)
+                y2 = int((y+h/2) * height)
                 cv2.rectangle(frame2, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.imshow("frame", frame2)
+                cv2.imwrite("hand.jpg", frame2)
             else:
+                #print("No hand detected") 
                 cv2.imshow("frame", frame2)
                 
-
+        time.sleep(0.1)
 
         if cv2.waitKey(1) == ord("q"):
             break

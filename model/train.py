@@ -19,6 +19,9 @@ from utils import (
 )
 from loss import YoloLoss
 import cv2
+import os
+from PIL import Image
+import matplotlib.pyplot as plt
 
 seed = 123
 torch.manual_seed(seed)
@@ -31,8 +34,8 @@ WEIGHT_DECAY = 0
 EPOCHS = 1
 NUM_WORKERS = 2
 PIN_MEMORY = True
-LOAD_MODEL = False
-LOAD_MODEL_FILE = "../nns/test.pth.tar"
+LOAD_MODEL = True
+LOAD_MODEL_FILE = "../nns/pokusaj2.pth.tar"
 TRAIN_ROOT_DIR = "../dataset-creating/data/train/"
 TEST_ROOT_DIR = "../dataset-creating/data/test/"
 
@@ -47,20 +50,15 @@ class Compose(object):
 
         return img
     
-# transform = Compose([
-#     transforms.Resize((448, 448)), 
-#     transforms.RandomRotation(10), 
-#     transforms.RandomHorizontalFlip(p=0.5), 
-#     transforms.RandomVerticalFlip(p=0.5), 
-#     transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
-#     transforms.RandomErasing(p=0.5, scale=(0.02, 0.33), ratio=(0.3, 3.3), value=0, inplace=False), 
-#     transforms.RandomPerspective(distortion_scale=0.5, p=0.5, interpolation=3), 
-#     transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10, fill=0), 
-#     transforms.ToTensor(), 
-#     transforms.Normalize(mean=[0.5], std=[0.5]),
-# ])
+transform = Compose([
+    transforms.Resize((448, 448)), 
+    transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5), 
+    transforms.ToTensor(), 
+])
 
-transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor()])
+# transform = Compose([transforms.Resize((448, 448)), transforms.ToTensor()])
+    
+
 
 def train_fn(train_loader, model, optimizer, loss_fn):
     loop = tqdm(train_loader, leave=True)
@@ -91,13 +89,13 @@ def train(train_dataloader, model, optimizer, loss_fn):
         #         bboxes = non_max_suppression(bboxes[idx], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
         #         plot_image(x[idx].permute(1,2,0).to("cpu"), bboxes)
 
-        # pred_boxes, target_boxes = get_bboxes(
-        #     train_dataloader, model, iou_threshold=0.5, threshold=0.4
-        # )
-        # mean_avg_prec = mean_average_precision(
-        #     pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
-        # )
-        # print(f"Train mAP: {mean_avg_prec}")
+        pred_boxes, target_boxes = get_bboxes(
+            train_dataloader, model, iou_threshold=0.5, threshold=0.4
+        )
+        mean_avg_prec = mean_average_precision(
+            pred_boxes, target_boxes, iou_threshold=0.5, box_format="midpoint"
+        )
+        print(f"Train mAP: {mean_avg_prec}")
 
         train_fn(train_dataloader, model, optimizer, loss_fn)
 
@@ -110,16 +108,34 @@ def train(train_dataloader, model, optimizer, loss_fn):
             }
             save_checkpoint(checkpoint, filename=LOAD_MODEL_FILE)
 
+
     
 def test_fn(test_loader, model):
+    tacno, ukupno = 0, 0
     # provide image, get label
     for x, y in test_loader:
+        ukupno += 1
         x = x.to(DEVICE)
         out = model(x)
         bboxes = cellboxes_to_boxes(out)
         bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
-        print(bboxes)
-        plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
+        if bboxes != []:
+            # print(y.tolist()[0])
+            
+            for row in y.tolist()[0]:
+                for col in row:
+                    if col[5] == 1:
+                        y_train = torch.argmax(torch.tensor(col[:5]))
+                        print(y_train)
+                        if y_train.item() == bboxes[0][0]:
+                            tacno += 1
+                            break
+            # print(bboxes)
+            # plot_image(x[0].permute(1,2,0).to("cpu"), bboxes)
+
+        print(f"Tacno: {tacno}, ukupno: {ukupno}, tacnost: {tacno/ukupno}")
+
+
 
 
 
@@ -138,18 +154,19 @@ def main():
     if LOAD_MODEL:
         load_checkpoint(torch.load(LOAD_MODEL_FILE), model, optimizer)
 
-    train_dataset = HandDataset(root_dir=TRAIN_ROOT_DIR, transform=transform, S=7, B=1, C=5)
+    # train_dataset = HandDataset(root_dir=TRAIN_ROOT_DIR, transform=transform, S=7, B=1, C=5)
+
+    # train_dataloader = DataLoader(
+    #     dataset=train_dataset,
+    #     batch_size=BATCH_SIZE,
+    #     num_workers=NUM_WORKERS,
+    #     pin_memory=PIN_MEMORY,
+    #     shuffle=True,
+    #     drop_last=False,
+    # )
+    # train(train_dataloader, model, optimizer, loss_fn)
+
     test_dataset = HandDataset(root_dir=TEST_ROOT_DIR, transform=transform, S=7, B=1, C=5)
-
-    train_dataloader = DataLoader(
-        dataset=train_dataset,
-        batch_size=BATCH_SIZE,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        shuffle=True,
-        drop_last=False,
-    )
-
     test_dataloader = DataLoader(
         dataset=test_dataset,
         batch_size=1,
@@ -158,9 +175,38 @@ def main():
         shuffle=True,
         drop_last=False,
     )
+    test_fn(test_dataloader, model)
 
-    train(train_dataloader, model, optimizer, loss_fn)
-    # test_fn(test_dataloader, model)
+
+    # images = []
+    # # load all .jpg files from current directory
+    # for filename in os.listdir("."):
+    #     if filename.endswith(".jpg"):
+    #         images.append(filename)
+
+    # for image in images:
+    #     img = Image.open(image)
+    #     img = transform(img)
+    #     img = img.unsqueeze(0)
+    #     model.eval()
+
+    #     with torch.no_grad():
+    #         predictions = model(img.to(DEVICE))
+    #         bboxes = cellboxes_to_boxes(predictions)
+    #         bboxes = non_max_suppression(bboxes[0], iou_threshold=0.5, threshold=0.4, box_format="midpoint")
+    #         print(bboxes)
+    
+
+    # # plot both images at once
+    # fig, ax = plt.subplots(1, 2, figsize=(20, 10))
+    # for idx, image in enumerate(images):
+    #     img = Image.open(image)
+    #     ax[idx].imshow(img)
+    
+    # plt.show()
+    
+    
+    
 
 
 

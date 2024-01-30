@@ -17,7 +17,8 @@ class HandDataset(Dataset):
             "left": np.array([0., 1., 0., 0., 0.]),
             "down": np.array([0., 0., 1., 0., 0.]),
             "right": np.array([0., 0., 0., 1., 0.]),
-            "open": np.array([0., 0., 0., 0., 1.])
+            "open": np.array([0., 0., 0., 0., 1.]),
+            "nothing": np.array([0., 0., 0., 0., 0.]), 
         }
 
         self.label_index = {
@@ -37,7 +38,8 @@ class HandDataset(Dataset):
             "left": len(os.listdir(os.path.join(self.images_dir, "left"))),
             "down": len(os.listdir(os.path.join(self.images_dir, "down"))),
             "right": len(os.listdir(os.path.join(self.images_dir, "right"))),
-            "open": len(os.listdir(os.path.join(self.images_dir, "open")))
+            "open": len(os.listdir(os.path.join(self.images_dir, "open"))),
+            "nothing": len(os.listdir(os.path.join(self.images_dir, "nothing"))),
         }
 
         self.S = S
@@ -67,15 +69,23 @@ class HandDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        
-        df = pd.read_csv(label_path)
+        try:
+            df = pd.read_csv(label_path)
+        except:
+            return image, np.zeros((self.S, self.S, self.C + 5 * self.B))
 
         if len(df) == 0:
             return image, np.zeros((self.S, self.S, self.C + 5 * self.B))
 
         df = df.iloc[0] 
-        
+
+        if gesture == "nothing":
+            return image, np.zeros((self.S, self.S, self.C + 5 * self.B))
+
+
         class_label = self.label_index[gesture]
+
+
         x = (df["min_x"] + df["max_x"]) / 2
         y = (df["min_y"] + df["max_y"]) / 2
         w = df["max_x"] - df["min_x"]
