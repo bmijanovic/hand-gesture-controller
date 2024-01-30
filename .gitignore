@@ -306,3 +306,14 @@ pyrightconfig.json
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode,pycharm
+
+dataset-creating/utils.py
+dataset-creating/old-landmarks.ipynb
+dataset-creating/data/**
+dataset-creating/videos/**
+model/model.ipynb
+nns/*
+yolo.zip
+dataset-creating.zip
+model.zip
+sc.zip
